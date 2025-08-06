@@ -9,14 +9,12 @@
             font-family: sans-serif;
             padding: 20px;
         }
-
         textarea,
         input {
             width: 100%;
             margin-bottom: 10px;
             font-family: monospace;
         }
-
         .color-inputs {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -57,16 +55,20 @@ Instrument samples	String	is-s	description	examples</textarea>
         </div>
     </div>
 
-    <button onclick="generateTable()">Generate Table</button>
+    <button onclick="generateHTML()">Generate HTML</button>
 
-    <button id="copyButton" onclick="copyTableHTML()">Copy HTML to Clipboard</button>
+    <button id="copyTableButton" onclick="copyToClipboard('outputTable')">Copy Table HTML to Clipboard</button>
+    <button id="copyReactiveButton" onclick="copyToClipboard('outputReactive')">Copy Reactive HTML to Clipboard</button>
     <span id="copyStatus" style="margin-left:10px;color:green;display:none;">Copied!</span>
 
-
+    <h2>Table</h2>
     <div id="outputTable" style="margin-top: 20px;"></div>
 
+    <h2>Reactive</h2>
+    <div id="outputReactive" style="margin-top: 20px;"></div>
+
     <script>
-        function generateTable() {
+        function generateHTML() {
             const tsvText = document.getElementById('tsvInput').value.trim();
             const headerBgColors = document.getElementById('headerBg').value.split(',').map(c => '#' + c.trim());
             const headerFgColors = document.getElementById('headerFg').value.split(',').map(c => c.trim());
@@ -84,44 +86,59 @@ Instrument samples	String	is-s	description	examples</textarea>
             });
 
             const headers = Object.keys(headerMap);
-            const output = [];
 
-            output.push('<table style="width:100%;border-collapse:collapse;table-layout:fixed;text-align:center;">');
-
-            // Header Row
-            output.push('<tr>');
+            // Table layout
+            const tableOutput = [];
+            tableOutput.push(`<div style="overflow-x:auto;width:100%;">`);
+            tableOutput.push('<table style="width:100%;border-collapse:collapse;table-layout:fixed;text-align:center;">');
+            tableOutput.push('<tr>');
             headers.forEach((header, i) => {
                 const bg = headerBgColors[i % headerBgColors.length];
                 const fg = headerFgColors[i % headerFgColors.length];
-                output.push(`<th style="width:20%;vertical-align:top;"><span style="word-break:break-word;display:block;margin:4px;padding:8px;border-radius:6px;background:${bg};color:${fg};">${header}</span></th>`);
+                tableOutput.push(`<th style="width:20%;vertical-align:top;"><span style="word-break:break-word;display:block;margin:4px;padding:8px;border-radius:6px;background:${bg};color:${fg};">${header}</span></th>`);
             });
-            output.push('</tr>');
-
-            // Divider Row (dashed line)
-            output.push(`<tr><td colspan="${headers.length}" style="border-bottom:1px dashed black;"></td></tr>`);
-
-            // Items Row
-            output.push('<tr>');
+            tableOutput.push('</tr>');
+            tableOutput.push(`<tr><td colspan="${headers.length}" style="border-bottom:1px dashed black;"></td></tr>`);
+            tableOutput.push('<tr>');
             headers.forEach((header, i) => {
                 const items = headerMap[header] || [];
                 const itemBg = itemBgColors[i % itemBgColors.length];
                 const itemFg = itemFgColors[i % itemFgColors.length];
-                output.push('<td style="vertical-align:top;"><ul style="list-style:none;padding:0;margin:0;">');
+                tableOutput.push('<td style="vertical-align:top;"><ul style="list-style:none;padding:0;margin:0;">');
                 items.forEach(itemText => {
-                    output.push(`<li style="background:${itemBg};color:${itemFg};word-break:break-word;margin:4px;padding:8px;border-radius:6px;">${itemText}</li>`);
+                    tableOutput.push(`<li style="background:${itemBg};color:${itemFg};word-break:break-word;margin:4px;padding:8px;border-radius:6px;">${itemText}</li>`);
                 });
-                output.push('</ul></td>');
+                tableOutput.push('</ul></td>');
             });
-            output.push('</tr>');
+            tableOutput.push('</tr>');
+            tableOutput.push('</table>');
+            tableOutput.push(`</div>`);
 
-            output.push('</table>');
+            document.getElementById('outputTable').innerHTML = tableOutput.join('');
 
-            document.getElementById('outputTable').innerHTML = output.join('');
+            // Reactive layout
+            const reactiveOutput = [];
+            reactiveOutput.push('<div class="reactive-container" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px;">');
+            headers.forEach((header, i) => {
+                const bg = headerBgColors[i % headerBgColors.length];
+                const fg = headerFgColors[i % headerFgColors.length];
+                const itemBg = itemBgColors[i % itemBgColors.length];
+                const itemFg = itemFgColors[i % itemFgColors.length];
+                reactiveOutput.push('<div class="reactive-card">');
+                reactiveOutput.push(`<div class="reactive-header" style="font-weight:bold;border-radius:4px;padding:8px;margin-bottom:6px;text-align:center;background:${bg};color:${fg};">${header}</div>`);
+                headerMap[header].forEach(itemText => {
+                    reactiveOutput.push(`<div class="reactive-item" style="border-radius:4px;padding:4px;margin-bottom:4px;text-align:center;word-break:break-word;background:${itemBg};color:${itemFg};">${itemText}</div>`);
+                });
+                reactiveOutput.push('</div>');
+            });
+            reactiveOutput.push('</div>');
+
+            document.getElementById('outputReactive').innerHTML = reactiveOutput.join('');
         }
-        let copyTimeout;
 
-        function copyTableHTML() {
-            const outputDiv = document.getElementById('outputTable');
+        let copyTimeout;
+        function copyToClipboard(divId) {
+            const outputDiv = document.getElementById(divId);
             const tempTextarea = document.createElement('textarea');
             tempTextarea.value = outputDiv.innerHTML;
             document.body.appendChild(tempTextarea);
@@ -129,21 +146,14 @@ Instrument samples	String	is-s	description	examples</textarea>
             document.execCommand('copy');
             document.body.removeChild(tempTextarea);
 
-            // Show "Copied!" message
             const statusSpan = document.getElementById('copyStatus');
             statusSpan.style.display = 'inline';
-
-            // Clear any existing timeout to prevent stacking
             if (copyTimeout) clearTimeout(copyTimeout);
-
-            // Hide the message after 2 seconds
             copyTimeout = setTimeout(() => {
                 statusSpan.style.display = 'none';
             }, 2000);
         }
     </script>
-
-
 </body>
 
 </html>
